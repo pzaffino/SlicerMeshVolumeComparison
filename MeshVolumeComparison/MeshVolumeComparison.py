@@ -7,6 +7,20 @@ import slicer
 from slicer.ScriptedLoadableModule import *
 from slicer.util import VTKObservationMixin
 
+import numpy as np
+
+# If needed install libraries before imporing. If already installed, just import it.
+try:
+  import pyvista as pv
+except ModuleNotFoundError:
+  slicer.util.pip_install("pyvista")
+  import pyvista as pv
+
+try:
+  import pymeshfix as mf
+except ModuleNotFoundError:
+  slicer.util.pip_install("pymeshfix")
+  import pymeshfix as mf
 
 #
 # MeshVolumeComparison
@@ -61,7 +75,7 @@ class MeshVolumeComparisonWidget(ScriptedLoadableModuleWidget, VTKObservationMix
         ScriptedLoadableModuleWidget.setup(self)
 
         parametersCollapsibleButton = ctk.ctkCollapsibleButton()
-        parametersCollapsibleButton.text = "Parameters"
+        parametersCollapsibleButton.text = "Difference quantification"
         self.layout.addWidget(parametersCollapsibleButton)
 
         # Layout within the dummy collapsible button
@@ -104,10 +118,10 @@ class MeshVolumeComparisonWidget(ScriptedLoadableModuleWidget, VTKObservationMix
         #
         # Apply Button
         #
-        self.applyButton = qt.QPushButton("Compute A-B volume difference")
-        self.applyButton.toolTip = "Compute the volume difference"
-        #self.applyButton.enabled = False
-        parametersFormLayout.addRow(self.applyButton)
+        self.differenceButton = qt.QPushButton("Compute A-B volume difference")
+        self.differenceButton.toolTip = "Compute the volume difference"
+        self.differenceButton.enabled = False
+        parametersFormLayout.addRow(self.differenceButton)
 
 
         # Create logic class. Logic implements all computations that should be possible to run
@@ -115,6 +129,9 @@ class MeshVolumeComparisonWidget(ScriptedLoadableModuleWidget, VTKObservationMix
         self.logic = MeshVolumeComparisonLogic()
 
         # Connections
+        self.differenceButton.connect('clicked(bool)', self.onDifferenceButton)
+        self.modelASelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
+        self.modelBSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
 
         # These connections ensure that we update parameter node when scene is closed
         self.addObserver(slicer.mrmlScene, slicer.mrmlScene.StartCloseEvent, self.onSceneStartClose)
@@ -129,16 +146,18 @@ class MeshVolumeComparisonWidget(ScriptedLoadableModuleWidget, VTKObservationMix
         """
         self.removeObservers()
 
+    def onSelect(self):
+        self.differenceButton.enabled = self.modelASelector.currentNode() and self.modelBSelector.currentNode()
 
-    def onApplyButton(self):
+
+    def onDifferenceButton(self):
         """
         Run processing when user clicks "Apply" button.
         """
         with slicer.util.tryWithErrorDisplay("Failed to compute results.", waitCursor=True):
-            pass
             # Compute output
-            #self.logic.process(self.ui.inputSelector.currentNode(), self.ui.outputSelector.currentNode(), self.ui.imageThresholdSliderWidget.value, self.ui.invertOutputCheckBox.checked)
-
+            volumeDifference = self.logic.computeVolumeDifference(self.modelASelector.currentNode().GetName(), self.modelBSelector.currentNode().GetName())
+            self.QLabelVolumeDifference.setText("%.1f" % volumeDifference)
 
     def onSceneStartClose(self, caller, event):
         """
@@ -215,6 +234,7 @@ class MeshVolumeComparisonLogic(ScriptedLoadableModuleLogic):
         """
         Called when the logic class is instantiated. Can be used for initializing member variables.
         """
+
         ScriptedLoadableModuleLogic.__init__(self)
 
     def setDefaultParameters(self, parameterNode):
@@ -226,37 +246,14 @@ class MeshVolumeComparisonLogic(ScriptedLoadableModuleLogic):
         if not parameterNode.GetParameter("Invert"):
             parameterNode.SetParameter("Invert", "false")
 
-    def process(self, inputVolume, outputVolume, imageThreshold, invert=False, showResult=True):
-        """
-        Run the processing algorithm.
-        Can be used without GUI widget.
-        :param inputVolume: volume to be thresholded
-        :param outputVolume: thresholding result
-        :param imageThreshold: values above/below this threshold will be set to 0
-        :param invert: if True then values above the threshold will be set to 0, otherwise values below are set to 0
-        :param showResult: show output volume in slice viewers
-        """
+    def computeVolumeDifference(self, modelAName, modelBName):
+        modelANode = slicer.util.getNode(modelAName)
+        modelA_pv = pv.PolyData(modelANode.GetPolyData())
 
-        if not inputVolume or not outputVolume:
-            raise ValueError("Input or output volume is invalid")
+        modelBNode = slicer.util.getNode(modelBName)
+        modelB_pv = pv.PolyData(modelBNode.GetPolyData())
 
-        import time
-        startTime = time.time()
-        logging.info('Processing started')
-
-        # Compute the thresholded output volume using the "Threshold Scalar Volume" CLI module
-        cliParams = {
-            'InputVolume': inputVolume.GetID(),
-            'OutputVolume': outputVolume.GetID(),
-            'ThresholdValue': imageThreshold,
-            'ThresholdType': 'Above' if invert else 'Below'
-        }
-        cliNode = slicer.cli.run(slicer.modules.thresholdscalarvolume, None, cliParams, wait_for_completion=True, update_display=showResult)
-        # We don't need the CLI module node anymore, remove it to not clutter the scene with it
-        slicer.mrmlScene.RemoveNode(cliNode)
-
-        stopTime = time.time()
-        logging.info(f'Processing completed in {stopTime-startTime:.2f} seconds')
+        return modelA_pv.volume - modelB_pv.volume
 
 
 #

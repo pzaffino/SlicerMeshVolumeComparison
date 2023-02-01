@@ -74,12 +74,59 @@ class MeshVolumeComparisonWidget(ScriptedLoadableModuleWidget, VTKObservationMix
         """
         ScriptedLoadableModuleWidget.setup(self)
 
-        parametersCollapsibleButton = ctk.ctkCollapsibleButton()
-        parametersCollapsibleButton.text = "Difference quantification"
-        self.layout.addWidget(parametersCollapsibleButton)
+        # Close mesh section
+        closeMeshCollapsibleButton = ctk.ctkCollapsibleButton()
+        closeMeshCollapsibleButton.text = "Close open mesh"
+        self.layout.addWidget(closeMeshCollapsibleButton)
 
-        # Layout within the dummy collapsible button
-        parametersFormLayout = qt.QFormLayout(parametersCollapsibleButton)
+        closeMeshFormLayout = qt.QFormLayout(closeMeshCollapsibleButton)
+
+        #
+        # Open model selector
+        #
+        self.openModelSelector = slicer.qMRMLNodeComboBox()
+        self.openModelSelector.nodeTypes = ["vtkMRMLModelNode"]
+        self.openModelSelector.selectNodeUponCreation = True
+        self.openModelSelector.addEnabled = False
+        self.openModelSelector.removeEnabled = False
+        self.openModelSelector.noneEnabled = False
+        self.openModelSelector.showHidden = False
+        self.openModelSelector.showChildNodeTypes = False
+        self.openModelSelector.setMRMLScene( slicer.mrmlScene )
+        self.openModelSelector.setToolTip( "Select the open model" )
+        closeMeshFormLayout.addRow("Open model: ", self.openModelSelector)
+
+        #
+        # Close model selector
+        #
+
+        self.outputModelSelector = slicer.qMRMLNodeComboBox()
+        self.outputModelSelector.nodeTypes = ["vtkMRMLModelNode"]
+        self.outputModelSelector.selectNodeUponCreation = True
+        self.outputModelSelector.addEnabled = True
+        self.outputModelSelector.removeEnabled = True
+        self.outputModelSelector.noneEnabled = True
+        self.outputModelSelector.showHidden = False
+        self.outputModelSelector.showChildNodeTypes = False
+        self.outputModelSelector.setMRMLScene( slicer.mrmlScene )
+        self.outputModelSelector.setToolTip( "Select or create the model to store the closed model" )
+        closeMeshFormLayout.addRow("Closed model: ", self.outputModelSelector)
+
+        #
+        # Volume difference quantification Button
+        #
+        self.closeButton = qt.QPushButton("Close model")
+        self.closeButton.toolTip = "Close the selected model"
+        #self.differenceButton.enabled = False
+        closeMeshFormLayout.addRow(self.closeButton)
+
+
+        ####### Volume difference Section
+        volumeDifferenceCollapsibleButton = ctk.ctkCollapsibleButton()
+        volumeDifferenceCollapsibleButton.text = "Difference quantification"
+        self.layout.addWidget(volumeDifferenceCollapsibleButton)
+
+        volumeDifferenceFormLayout = qt.QFormLayout(volumeDifferenceCollapsibleButton)
 
         #
         # Model A selector
@@ -94,7 +141,7 @@ class MeshVolumeComparisonWidget(ScriptedLoadableModuleWidget, VTKObservationMix
         self.modelASelector.showChildNodeTypes = False
         self.modelASelector.setMRMLScene( slicer.mrmlScene )
         self.modelASelector.setToolTip( "Select the model A" )
-        parametersFormLayout.addRow("Model A: ", self.modelASelector)
+        volumeDifferenceFormLayout.addRow("Model A: ", self.modelASelector)
 
         #
         # Model B selector
@@ -109,19 +156,19 @@ class MeshVolumeComparisonWidget(ScriptedLoadableModuleWidget, VTKObservationMix
         self.modelBSelector.showChildNodeTypes = False
         self.modelBSelector.setMRMLScene( slicer.mrmlScene )
         self.modelBSelector.setToolTip( "Select the model B" )
-        parametersFormLayout.addRow("Model B: ", self.modelBSelector)
+        volumeDifferenceFormLayout.addRow("Model B: ", self.modelBSelector)
 
         # Volume Difference QLabel
         self.QLabelVolumeDifference = qt.QLabel("")
-        parametersFormLayout.addRow("Volume difference = ", self.QLabelVolumeDifference)
+        volumeDifferenceFormLayout.addRow("Volume difference = ", self.QLabelVolumeDifference)
 
         #
-        # Apply Button
+        # Volume difference quantification Button
         #
         self.differenceButton = qt.QPushButton("Compute A-B volume difference")
         self.differenceButton.toolTip = "Compute the volume difference"
         self.differenceButton.enabled = False
-        parametersFormLayout.addRow(self.differenceButton)
+        volumeDifferenceFormLayout.addRow(self.differenceButton)
 
 
         # Create logic class. Logic implements all computations that should be possible to run
@@ -130,6 +177,7 @@ class MeshVolumeComparisonWidget(ScriptedLoadableModuleWidget, VTKObservationMix
 
         # Connections
         self.differenceButton.connect('clicked(bool)', self.onDifferenceButton)
+        self.closeButton.connect('clicked(bool)', self.onCloseButton)
         self.modelASelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
         self.modelBSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
 
@@ -158,6 +206,15 @@ class MeshVolumeComparisonWidget(ScriptedLoadableModuleWidget, VTKObservationMix
             # Compute output
             volumeDifference = self.logic.computeVolumeDifference(self.modelASelector.currentNode().GetName(), self.modelBSelector.currentNode().GetName())
             self.QLabelVolumeDifference.setText("%.1f" % volumeDifference)
+
+    def onCloseButton(self):
+        """
+        Run processing when user clicks "Apply" button.
+        """
+        with slicer.util.tryWithErrorDisplay("Failed to compute results.", waitCursor=True):
+            # Compute output
+            self.logic.closeMesh(self.openModelSelector.currentNode().GetName(), self.outputModelSelector.currentNode().GetName())
+
 
     def onSceneStartClose(self, caller, event):
         """
@@ -255,6 +312,16 @@ class MeshVolumeComparisonLogic(ScriptedLoadableModuleLogic):
 
         return modelA_pv.volume - modelB_pv.volume
 
+    def closeMesh(self, openMeshName, closedMeshName):
+        modelNode = slicer.util.getNode(openMeshName)
+        model_pv = pv.PolyData(modelNode.GetPolyData())
+
+        meshfix = mf.MeshFix(model_pv.triangulate())
+        holes = meshfix.extract_holes()
+        meshfix.repair(verbose=True)
+
+        fixedModelNode = slicer.util.getNode(closedMeshName)
+        fixedModelNode.SetAndObservePolyData(meshfix.mesh.extract_surface())
 
 #
 # MeshVolumeComparisonTest

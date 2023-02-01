@@ -67,7 +67,48 @@ class MeshVolumeComparisonWidget(ScriptedLoadableModuleWidget, VTKObservationMix
         # Layout within the dummy collapsible button
         parametersFormLayout = qt.QFormLayout(parametersCollapsibleButton)
 
-        ###################
+        #
+        # Model A selector
+        #
+        self.modelASelector = slicer.qMRMLNodeComboBox()
+        self.modelASelector.nodeTypes = ["vtkMRMLModelNode"]
+        self.modelASelector.selectNodeUponCreation = True
+        self.modelASelector.addEnabled = False
+        self.modelASelector.removeEnabled = False
+        self.modelASelector.noneEnabled = False
+        self.modelASelector.showHidden = False
+        self.modelASelector.showChildNodeTypes = False
+        self.modelASelector.setMRMLScene( slicer.mrmlScene )
+        self.modelASelector.setToolTip( "Select the model A" )
+        parametersFormLayout.addRow("Model A: ", self.modelASelector)
+
+        #
+        # Model B selector
+        #
+        self.modelBSelector = slicer.qMRMLNodeComboBox()
+        self.modelBSelector.nodeTypes = ["vtkMRMLModelNode"]
+        self.modelBSelector.selectNodeUponCreation = True
+        self.modelBSelector.addEnabled = False
+        self.modelBSelector.removeEnabled = False
+        self.modelBSelector.noneEnabled = False
+        self.modelBSelector.showHidden = False
+        self.modelBSelector.showChildNodeTypes = False
+        self.modelBSelector.setMRMLScene( slicer.mrmlScene )
+        self.modelBSelector.setToolTip( "Select the model B" )
+        parametersFormLayout.addRow("Model B: ", self.modelBSelector)
+
+        # Volume Difference QLabel
+        self.QLabelVolumeDifference = qt.QLabel("")
+        parametersFormLayout.addRow("Volume difference = ", self.QLabelVolumeDifference)
+
+        #
+        # Apply Button
+        #
+        self.applyButton = qt.QPushButton("Compute A-B volume difference")
+        self.applyButton.toolTip = "Compute the volume difference"
+        #self.applyButton.enabled = False
+        parametersFormLayout.addRow(self.applyButton)
+
 
         # Create logic class. Logic implements all computations that should be possible to run
         # in batch mode, without a graphical user interface.

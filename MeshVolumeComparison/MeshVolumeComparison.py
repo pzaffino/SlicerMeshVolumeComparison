@@ -248,6 +248,11 @@ class MeshVolumeComparisonWidget(ScriptedLoadableModuleWidget, VTKObservationMix
                                                 self.modelBSelector.currentNode(),
                                                 self.outputBooleanDifferenceModelSelector.currentNode())
 
+            self.modelASelector.currentNode().SetDisplayVisibility(False)
+            self.modelBSelector.currentNode().SetDisplayVisibility(False)
+            self.outputBooleanDifferenceModelSelector.currentNode().CreateDefaultDisplayNodes()
+            self.outputBooleanDifferenceModelSelector.currentNode().SetDisplayVisibility(True)
+
     def onCloseButton(self):
         """
         Run processing when user clicks "Apply" button.
@@ -255,6 +260,9 @@ class MeshVolumeComparisonWidget(ScriptedLoadableModuleWidget, VTKObservationMix
         with slicer.util.tryWithErrorDisplay("Failed to compute results.", waitCursor=True):
             # Compute output
             self.logic.closeMesh(self.openModelSelector.currentNode(), self.outputClosedModelSelector.currentNode())
+            self.openModelSelector.currentNode().SetDisplayVisibility(False)
+            self.outputClosedModelSelector.currentNode().CreateDefaultDisplayNodes()
+            self.outputClosedModelSelector.currentNode().SetDisplayVisibility(True)
 
 
     def onSceneStartClose(self, caller, event):

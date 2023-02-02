@@ -97,17 +97,17 @@ class MeshVolumeComparisonWidget(ScriptedLoadableModuleWidget, VTKObservationMix
         # Close model selector
         #
 
-        self.outputModelSelector = slicer.qMRMLNodeComboBox()
-        self.outputModelSelector.nodeTypes = ["vtkMRMLModelNode"]
-        self.outputModelSelector.selectNodeUponCreation = True
-        self.outputModelSelector.addEnabled = True
-        self.outputModelSelector.removeEnabled = True
-        self.outputModelSelector.noneEnabled = True
-        self.outputModelSelector.showHidden = False
-        self.outputModelSelector.showChildNodeTypes = False
-        self.outputModelSelector.setMRMLScene( slicer.mrmlScene )
-        self.outputModelSelector.setToolTip( "Select or create the model to store the closed model" )
-        closeMeshFormLayout.addRow("Closed model: ", self.outputModelSelector)
+        self.outputClosedModelSelector = slicer.qMRMLNodeComboBox()
+        self.outputClosedModelSelector.nodeTypes = ["vtkMRMLModelNode"]
+        self.outputClosedModelSelector.selectNodeUponCreation = True
+        self.outputClosedModelSelector.addEnabled = True
+        self.outputClosedModelSelector.removeEnabled = True
+        self.outputClosedModelSelector.noneEnabled = True
+        self.outputClosedModelSelector.showHidden = False
+        self.outputClosedModelSelector.showChildNodeTypes = False
+        self.outputClosedModelSelector.setMRMLScene( slicer.mrmlScene )
+        self.outputClosedModelSelector.setToolTip( "Select or create the model to store the closed model" )
+        closeMeshFormLayout.addRow("Closed model: ", self.outputClosedModelSelector)
 
         #
         # Volume difference quantification Button
@@ -155,6 +155,22 @@ class MeshVolumeComparisonWidget(ScriptedLoadableModuleWidget, VTKObservationMix
         self.modelBSelector.setToolTip( "Select the model B" )
         volumeDifferenceFormLayout.addRow("Model B: ", self.modelBSelector)
 
+        #
+        # Boolean difference volume selector
+        #
+
+        self.outputBooleanDifferenceModelSelector = slicer.qMRMLNodeComboBox()
+        self.outputBooleanDifferenceModelSelector.nodeTypes = ["vtkMRMLModelNode"]
+        self.outputBooleanDifferenceModelSelector.selectNodeUponCreation = True
+        self.outputBooleanDifferenceModelSelector.addEnabled = True
+        self.outputBooleanDifferenceModelSelector.removeEnabled = True
+        self.outputBooleanDifferenceModelSelector.noneEnabled = True
+        self.outputBooleanDifferenceModelSelector.showHidden = False
+        self.outputBooleanDifferenceModelSelector.showChildNodeTypes = False
+        self.outputBooleanDifferenceModelSelector.setMRMLScene( slicer.mrmlScene )
+        self.outputBooleanDifferenceModelSelector.setToolTip( "Select or create the model to store the boolean difference" )
+        volumeDifferenceFormLayout.addRow("Boolean diffrence model: ", self.outputBooleanDifferenceModelSelector)
+
         # Volume Difference QLabel
         self.QLabelVolumeDifference = qt.QLabel("")
         volumeDifferenceFormLayout.addRow("Volume difference = ", self.QLabelVolumeDifference)
@@ -167,19 +183,29 @@ class MeshVolumeComparisonWidget(ScriptedLoadableModuleWidget, VTKObservationMix
         self.differenceButton.enabled = False
         volumeDifferenceFormLayout.addRow(self.differenceButton)
 
+        #
+        # Boolean differernce Button
+        #
+        self.booleanDifferenceButton = qt.QPushButton("Run boolean difference (A-B)")
+        self.booleanDifferenceButton.toolTip = "Run boolean difference"
+        self.booleanDifferenceButton.enabled = False
+        volumeDifferenceFormLayout.addRow(self.booleanDifferenceButton)
+
 
         # Create logic class. Logic implements all computations that should be possible to run
         # in batch mode, without a graphical user interface.
         self.logic = MeshVolumeComparisonLogic()
 
         # Connections
-        self.closeButton.connect('clicked(bool)', self.onCloseButton)
         self.openModelSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onCloseSelect)
-        self.outputModelSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onCloseSelect)
+        self.outputClosedModelSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onCloseSelect)
+        self.closeButton.connect('clicked(bool)', self.onCloseButton)
 
-        self.differenceButton.connect('clicked(bool)', self.onDifferenceButton)
         self.modelASelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onDifferenceSelect)
         self.modelBSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onDifferenceSelect)
+        self.outputBooleanDifferenceModelSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onDifferenceSelect)
+        self.differenceButton.connect('clicked(bool)', self.onDifferenceButton)
+        self.booleanDifferenceButton.connect('clicked(bool)', self.onBooleanDifferenceButton)
 
         # These connections ensure that we update parameter node when scene is closed
         self.addObserver(slicer.mrmlScene, slicer.mrmlScene.StartCloseEvent, self.onSceneStartClose)
@@ -196,9 +222,11 @@ class MeshVolumeComparisonWidget(ScriptedLoadableModuleWidget, VTKObservationMix
 
     def onDifferenceSelect(self):
         self.differenceButton.enabled = self.modelASelector.currentNode() and self.modelBSelector.currentNode()
+        self.booleanDifferenceButton.enabled = (self.modelASelector.currentNode() and self.modelBSelector.currentNode()
+                                                and self.outputBooleanDifferenceModelSelector.currentNode())
 
     def onCloseSelect(self):
-        self.closeButton.enabled = self.openModelSelector.currentNode() and self.outputModelSelector.currentNode()
+        self.closeButton.enabled = self.openModelSelector.currentNode() and self.outputClosedModelSelector.currentNode()
 
 
     def onDifferenceButton(self):
@@ -210,13 +238,23 @@ class MeshVolumeComparisonWidget(ScriptedLoadableModuleWidget, VTKObservationMix
             volumeDifference = self.logic.computeVolumeDifference(self.modelASelector.currentNode().GetName(), self.modelBSelector.currentNode().GetName())
             self.QLabelVolumeDifference.setText("%.1f" % volumeDifference)
 
+    def onBooleanDifferenceButton(self):
+        """
+        Run processing when user clicks "Apply" button.
+        """
+        with slicer.util.tryWithErrorDisplay("Failed to compute results.", waitCursor=True):
+            # Compute output
+            self.logic.executeBooleanDifference(self.modelASelector.currentNode().GetName(),
+                                                self.modelBSelector.currentNode().GetName(),
+                                                self.outputBooleanDifferenceModelSelector.currentNode().GetName())
+
     def onCloseButton(self):
         """
         Run processing when user clicks "Apply" button.
         """
         with slicer.util.tryWithErrorDisplay("Failed to compute results.", waitCursor=True):
             # Compute output
-            self.logic.closeMesh(self.openModelSelector.currentNode().GetName(), self.outputModelSelector.currentNode().GetName())
+            self.logic.closeMesh(self.openModelSelector.currentNode().GetName(), self.outputClosedModelSelector.currentNode().GetName())
 
 
     def onSceneStartClose(self, caller, event):
@@ -326,6 +364,11 @@ class MeshVolumeComparisonLogic(ScriptedLoadableModuleLogic):
         fixedModelNode = slicer.util.getNode(closedMeshName)
         fixedModelNode.SetAndObservePolyData(meshfix.mesh.extract_surface())
 
+    def executeBooleanDifference(self, modelAName, modelBName, outputModelName):
+        slicer.modules.combinemodels.widgetRepresentation().self().logic.process(slicer.util.getNode(modelAName),
+                                                                                 slicer.util.getNode(modelBName),
+                                                                                 slicer.util.getNode(outputModelName),
+                                                                                 "difference")
 #
 # MeshVolumeComparisonTest
 #

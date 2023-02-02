@@ -10,7 +10,7 @@ set(EXTENSION_CONTRIBUTORS "Paolo Zaffino (Magna Graecia University of Catanzaro
 set(EXTENSION_DESCRIPTION "This extension compute volume difference between meshes")
 set(EXTENSION_ICONURL "https://www.example.com/Slicer/Extensions/SlicerMeshVolumeComparison.png")
 set(EXTENSION_SCREENSHOTURLS "https://www.example.com/Slicer/Extensions/SlicerMeshVolumeComparison/Screenshots/1.png")
-set(EXTENSION_DEPENDS "NA") # Specified as a list or "NA" if no dependencies
+set(EXTENSION_DEPENDS "Sandbox") # Specified as a list or "NA" if no dependencies
 
 #-----------------------------------------------------------------------------
 # Extension dependencies

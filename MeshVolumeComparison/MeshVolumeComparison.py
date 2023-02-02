@@ -44,10 +44,7 @@ See more information in <a href="https://github.com/organization/projectname#Mes
 """
         # TODO: replace with organization, grant and thanks
         self.parent.acknowledgementText = """
-"""
-
-        # Additional initialization step after application startup is complete
-        slicer.app.connect("startupCompleted()", registerSampleData)
+                                          """
 
 #
 # MeshVolumeComparisonWidget
@@ -117,7 +114,7 @@ class MeshVolumeComparisonWidget(ScriptedLoadableModuleWidget, VTKObservationMix
         #
         self.closeButton = qt.QPushButton("Close model")
         self.closeButton.toolTip = "Close the selected model"
-        #self.differenceButton.enabled = False
+        self.closeButton.enabled = False
         closeMeshFormLayout.addRow(self.closeButton)
 
 
@@ -176,10 +173,13 @@ class MeshVolumeComparisonWidget(ScriptedLoadableModuleWidget, VTKObservationMix
         self.logic = MeshVolumeComparisonLogic()
 
         # Connections
-        self.differenceButton.connect('clicked(bool)', self.onDifferenceButton)
         self.closeButton.connect('clicked(bool)', self.onCloseButton)
-        self.modelASelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
-        self.modelBSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
+        self.openModelSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onCloseSelect)
+        self.outputModelSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onCloseSelect)
+
+        self.differenceButton.connect('clicked(bool)', self.onDifferenceButton)
+        self.modelASelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onDifferenceSelect)
+        self.modelBSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onDifferenceSelect)
 
         # These connections ensure that we update parameter node when scene is closed
         self.addObserver(slicer.mrmlScene, slicer.mrmlScene.StartCloseEvent, self.onSceneStartClose)
@@ -194,8 +194,11 @@ class MeshVolumeComparisonWidget(ScriptedLoadableModuleWidget, VTKObservationMix
         """
         self.removeObservers()
 
-    def onSelect(self):
+    def onDifferenceSelect(self):
         self.differenceButton.enabled = self.modelASelector.currentNode() and self.modelBSelector.currentNode()
+
+    def onCloseSelect(self):
+        self.closeButton.enabled = self.openModelSelector.currentNode() and self.outputModelSelector.currentNode()
 
 
     def onDifferenceButton(self):

@@ -235,7 +235,7 @@ class MeshVolumeComparisonWidget(ScriptedLoadableModuleWidget, VTKObservationMix
         """
         with slicer.util.tryWithErrorDisplay("Failed to compute results.", waitCursor=True):
             # Compute output
-            volumeDifference = self.logic.computeVolumeDifference(self.modelASelector.currentNode().GetName(), self.modelBSelector.currentNode().GetName())
+            volumeDifference = self.logic.computeVolumeDifference(self.modelASelector.currentNode(), self.modelBSelector.currentNode())
             self.QLabelVolumeDifference.setText("%.1f" % volumeDifference)
 
     def onBooleanDifferenceButton(self):
@@ -244,9 +244,9 @@ class MeshVolumeComparisonWidget(ScriptedLoadableModuleWidget, VTKObservationMix
         """
         with slicer.util.tryWithErrorDisplay("Failed to compute results.", waitCursor=True):
             # Compute output
-            self.logic.executeBooleanDifference(self.modelASelector.currentNode().GetName(),
-                                                self.modelBSelector.currentNode().GetName(),
-                                                self.outputBooleanDifferenceModelSelector.currentNode().GetName())
+            self.logic.executeBooleanDifference(self.modelASelector.currentNode(),
+                                                self.modelBSelector.currentNode(),
+                                                self.outputBooleanDifferenceModelSelector.currentNode())
 
     def onCloseButton(self):
         """
@@ -254,7 +254,7 @@ class MeshVolumeComparisonWidget(ScriptedLoadableModuleWidget, VTKObservationMix
         """
         with slicer.util.tryWithErrorDisplay("Failed to compute results.", waitCursor=True):
             # Compute output
-            self.logic.closeMesh(self.openModelSelector.currentNode().GetName(), self.outputClosedModelSelector.currentNode().GetName())
+            self.logic.closeMesh(self.openModelSelector.currentNode(), self.outputClosedModelSelector.currentNode())
 
 
     def onSceneStartClose(self, caller, event):
@@ -344,30 +344,25 @@ class MeshVolumeComparisonLogic(ScriptedLoadableModuleLogic):
         if not parameterNode.GetParameter("Invert"):
             parameterNode.SetParameter("Invert", "false")
 
-    def computeVolumeDifference(self, modelAName, modelBName):
-        modelANode = slicer.util.getNode(modelAName)
+    def computeVolumeDifference(self, modelANode, modelBNode):
         modelA_pv = pv.PolyData(modelANode.GetPolyData())
-
-        modelBNode = slicer.util.getNode(modelBName)
         modelB_pv = pv.PolyData(modelBNode.GetPolyData())
 
         return modelA_pv.volume - modelB_pv.volume
 
-    def closeMesh(self, openMeshName, closedMeshName):
-        modelNode = slicer.util.getNode(openMeshName)
-        model_pv = pv.PolyData(modelNode.GetPolyData())
+    def closeMesh(self, openMeshNode, closedMeshNode):
+        model_pv = pv.PolyData(openMeshNode.GetPolyData())
 
         meshfix = mf.MeshFix(model_pv.triangulate())
         holes = meshfix.extract_holes()
         meshfix.repair(verbose=True)
 
-        fixedModelNode = slicer.util.getNode(closedMeshName)
-        fixedModelNode.SetAndObservePolyData(meshfix.mesh.extract_surface())
+        closedMeshNode.SetAndObservePolyData(meshfix.mesh.extract_surface())
 
-    def executeBooleanDifference(self, modelAName, modelBName, outputModelName):
-        slicer.modules.combinemodels.widgetRepresentation().self().logic.process(slicer.util.getNode(modelAName),
-                                                                                 slicer.util.getNode(modelBName),
-                                                                                 slicer.util.getNode(outputModelName),
+    def executeBooleanDifference(self, modelANode, modelBNode, outputModelNode):
+        slicer.modules.combinemodels.widgetRepresentation().self().logic.process(modelANode,
+                                                                                 modelBNode,
+                                                                                 outputModelNode,
                                                                                  "difference")
 #
 # MeshVolumeComparisonTest
